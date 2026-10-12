@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nos Restos — Toulouse</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#FAF7F2;--bg2:#F0EBE1;--bg3:#E5DDD0;--fg:#2C1F14;--fg2:#6B5040;
+  --accent:#8B2635;--accent-lt:#B94459;--accent-bg:#F9EEF0;
+  --gold:#C4862A;--green:#2E7D4F;--border:#D6CBBA;--card:#FFFFFF;
+  --shadow:0 2px 12px rgba(44,31,20,.10);--shadow-lg:0 8px 32px rgba(44,31,20,.16);
+  --r:10px;--sidebar:340px;
+  --font-title:'Playfair Display',Georgia,serif;
+  --font-body:'Inter',system-ui,sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1A1210;--bg2:#231A14;--bg3:#2D211A;--fg:#F0EAE0;--fg2:#B8A090;
+  --accent:#C4455A;--accent-lt:#D96A7A;--accent-bg:#2A1218;
+  --gold:#D4A040;--green:#4CAF78;--border:#3D2E24;--card:#231A14;
+  --shadow:0 2px 12px rgba(0,0,0,.35);--shadow-lg:0 8px 32px rgba(0,0,0,.50);
+  color-scheme:dark;
+}}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0;font-family:var(--font-body);background:var(--bg);color:var(--fg);overflow:hidden}
+#app{display:flex;height:100%;width:100%;flex-direction:column}
+
+/* ── Top nav tabs ── */
+#top-nav{display:flex;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:20}
+.nav-tab{flex:1;padding:12px 8px;text-align:center;font-size:.82rem;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;color:var(--fg2);transition:all .15s;user-select:none;display:flex;align-items:center;justify-content:center;gap:6px}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-tab:hover{color:var(--fg)}
+
+/* ── Main content area ── */
+#content{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ── */
+#sidebar{width:var(--sidebar);min-width:260px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg);border-right:1px solid var(--border);overflow:hidden}
+#sidebar-header{padding:14px 14px 0;flex-shrink:0}
+.app-title{font-family:var(--font-title);font-size:1.3rem;color:var(--accent);margin:0 0 2px;line-height:1.2}
+.app-subtitle{font-size:.7rem;color:var(--fg2);margin:0 0 10px;letter-spacing:.04em;text-transform:uppercase}
+.search-bar{display:flex;gap:8px;margin-bottom:8px}
+.search-bar input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:.875rem;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+#tag-filters{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.tag-chip{padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--fg2);transition:all .15s;user-select:none}
+.tag-chip.active,.tag-chip:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.list-meta{display:flex;align-items:center;justify-content:space-between;padding:0 0 6px;font-size:.72rem;color:var(--fg2)}
+.list-meta select{font-family:var(--font-body);font-size:.72rem;color:var(--fg2);background:transparent;border:none;cursor:pointer;outline:none}
+#resto-list{flex:1;overflow-y:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:7px}
+#resto-list::-webkit-scrollbar{width:4px}
+#resto-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.resto-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;cursor:pointer;transition:box-shadow .15s,border-color .15s;box-shadow:var(--shadow)}
+.resto-card:hover{border-color:var(--accent);box-shadow:var(--shadow-lg)}
+.resto-card.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg),var(--shadow-lg)}
+.rc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:5px}
+.rc-name{font-family:var(--font-title);font-size:.95rem;font-weight:600;color:var(--fg);line-height:1.3;min-width:0}
+.rc-score{font-variant-numeric:tabular-nums;font-size:.78rem;font-weight:600;color:#fff;background:var(--accent);border-radius:6px;padding:2px 7px;flex-shrink:0;line-height:1.5}
+.rc-score.high{background:var(--green)}.rc-score.mid{background:var(--gold)}
+.rc-address{font-size:.7rem;color:var(--fg2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-tags{display:flex;flex-wrap:wrap;gap:4px}
+.rc-tag{font-size:.66rem;padding:2px 7px;border-radius:12px;background:var(--accent-bg);color:var(--accent);font-weight:500}
+#empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--fg2);text-align:center;padding:24px;gap:10px}
+#empty-state svg{opacity:.35}
+#empty-state p{font-size:.875rem;margin:0}
+#btn-add{margin:10px;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-family:var(--font-body);font-size:.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;flex-shrink:0}
+#btn-add:hover{background:var(--accent-lt)}
+
+/* ── Map ── */
+#map-wrap{flex:1;position:relative;overflow:hidden;display:flex}
+#map{height:100%;width:100%}
+
+/* ── Tableau view ── */
+#table-view{flex:1;display:none;flex-direction:column;overflow:hidden;background:var(--bg)}
+#table-view.active{display:flex}
+#table-toolbar{padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0}
+#table-toolbar input{padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:.85rem;outline:none;min-width:160px;flex:1}
+#table-toolbar input:focus{border-color:var(--accent)}
+#table-toolbar select{padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:.82rem;outline:none;cursor:pointer}
+#table-tag-filters{display:flex;flex-wrap:wrap;gap:5px;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+#table-scroll{flex:1;overflow:auto}
+#table-scroll::-webkit-scrollbar{width:4px;height:4px}
+#table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{background:var(--bg2);padding:10px 14px;text-align:left;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--fg2);position:sticky;top:0;z-index:5;white-space:nowrap;cursor:pointer;user-select:none;border-bottom:2px solid var(--border)}
+thead th:hover{color:var(--accent)}
+thead th .sort-arrow{display:inline-block;margin-left:4px;opacity:.4;font-size:.7rem}
+thead th.sorted .sort-arrow{opacity:1;color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+tbody tr:hover{background:var(--bg2)}
+tbody td{padding:10px 14px;color:var(--fg);vertical-align:middle}
+.td-name{font-family:var(--font-title);font-weight:600;font-size:.9rem}
+.td-score{font-weight:700;font-variant-numeric:tabular-nums}
+.td-score.high{color:var(--green)}.td-score.mid{color:var(--gold)}.td-score.low{color:var(--accent)}
+.td-tags{display:flex;flex-wrap:wrap;gap:3px}
+.td-tag{font-size:.64rem;padding:2px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:500}
+.td-sub{font-size:.75rem;color:var(--fg2)}
+#table-count{padding:8px 16px;font-size:.72rem;color:var(--fg2);border-top:1px solid var(--border);flex-shrink:0}
+
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:0}
+.leaflet-popup-content{margin:0}
+.leaflet-popup-tip-container{display:none}
+.leaflet-popup-close-button{color:var(--fg2)!important;font-size:18px!important;padding:6px 8px!important}
+.popup-inner{padding:14px 16px;min-width:210px;max-width:260px}
+.popup-name{font-family:var(--font-title);font-size:1rem;font-weight:700;color:var(--accent);margin:0 20px 4px 0}
+.popup-tags{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0 8px}
+.popup-tag{font-size:.65rem;padding:2px 6px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:500}
+.popup-scores{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:.76rem;margin-bottom:8px}
+.popup-row{display:flex;justify-content:space-between;gap:8px}
+.popup-lbl{color:var(--fg2)}.popup-val{font-weight:600}
+.popup-total{padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.popup-total-lbl{font-size:.75rem;color:var(--fg2);font-weight:600}
+.popup-total-val{font-family:var(--font-title);font-size:1.05rem;font-weight:700}
+.popup-note{font-size:.72rem;color:var(--fg2);font-style:italic;margin-bottom:8px}
+.popup-edit{width:100%;padding:7px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--font-body)}
+.popup-edit:hover{background:var(--accent-lt)}
+
+/* Sync badge */
+#sync-badge{position:absolute;bottom:10px;left:10px;z-index:1000;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:.7rem;color:var(--fg2);box-shadow:var(--shadow);display:flex;align-items:center;gap:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite}
+.sync-dot.ok{background:var(--green);animation:none}
+.sync-dot.err{background:var(--accent);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Modal */
+#modal-overlay{position:fixed;inset:0;background:rgba(44,31,20,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
+#modal-overlay[hidden]{display:none!important}
+.modal{background:var(--card);border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:460px;max-height:90vh;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:16px}
+.modal::-webkit-scrollbar{width:4px}
+.modal::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.modal-title{font-family:var(--font-title);font-size:1.3rem;color:var(--accent);margin:0;line-height:1.2}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:.75rem;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.06em}
+.field input,.field textarea{padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:.88rem;outline:none;transition:border-color .15s}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:64px}
+.addr-row{display:flex;gap:8px}
+.addr-row input{flex:1}
+.btn-search-addr{padding:9px 12px;background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:8px;font-size:.82rem;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .15s;font-family:var(--font-body)}
+.btn-search-addr:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-search-addr:disabled{opacity:.5;cursor:default}
+.addr-status{font-size:.75rem;color:var(--fg2);min-height:18px}
+.addr-status.ok{color:var(--green)}.addr-status.err{color:var(--accent)}
+.notes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.note-field{display:flex;flex-direction:column;gap:4px}
+.note-field label{font-size:.75rem;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px}
+.note-emoji{font-size:1rem}
+.note-field input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:1rem;font-weight:600;text-align:center;outline:none;transition:border-color .15s}
+.note-field input:focus{border-color:var(--accent)}
+.total-display{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.total-label{font-size:.8rem;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.04em}
+.total-value{font-family:var(--font-title);font-size:1.5rem;font-weight:700;color:var(--accent)}
+.tag-input-row{display:flex;gap:8px}
+.tag-input-row input{flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--fg);font-family:var(--font-body);font-size:.88rem;outline:none}
+.tag-input-row input:focus{border-color:var(--accent)}
+.btn-add-tag{padding:8px 12px;background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:8px;font-size:.82rem;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .15s;font-family:var(--font-body)}
+.btn-add-tag:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#selected-tags{display:flex;flex-wrap:wrap;gap:5px}
+.stag{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:var(--accent-bg);color:var(--accent);font-size:.75rem;font-weight:500;border:1px solid rgba(139,38,53,.2)}
+.stag button{background:none;border:none;cursor:pointer;color:var(--accent);font-size:.85rem;line-height:1;padding:0;display:flex}
+.modal-actions{display:flex;gap:10px}
+.btn-primary{flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-family:var(--font-body);font-size:.9rem;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-primary:hover{background:var(--accent-lt)}
+.btn-secondary{padding:11px 16px;background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-body);font-size:.9rem;cursor:pointer;transition:background .15s}
+.btn-secondary:hover{background:var(--bg3)}
+.btn-danger{padding:11px 14px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:var(--r);font-family:var(--font-body);font-size:.9rem;cursor:pointer;transition:all .15s}
+.btn-danger:hover{background:var(--accent);color:#fff}
+
+@media(max-width:700px){
+  #sidebar{display:none}
+  #map-wrap{flex:1}
+  #table-view{flex:1}
+  .nav-tab span.tab-label{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP NAVIGATION TABS -->
+  <div id="top-nav">
+    <div class="nav-tab active" id="tab-map" onclick="switchTab('map')">
+      🗺 <span class="tab-label">Carte</span>
+    </div>
+    <div class="nav-tab" id="tab-list" onclick="switchTab('list')">
+      📋 <span class="tab-label">Liste</span>
+    </div>
+    <div class="nav-tab" id="tab-table" onclick="switchTab('table')">
+      📊 <span class="tab-label">Tableau</span>
+    </div>
+    <div class="nav-tab" id="tab-add" onclick="openModal()" style="flex:0;padding:12px 16px;color:var(--accent)">
+      ＋ <span class="tab-label">Ajouter</span>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- SIDEBAR (visible en vue carte sur desktop) -->
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <p class="app-title">🍽 Nos Restos</p>
+        <p class="app-subtitle">Toulouse — Carte partagée</p>
+        <div class="search-bar">
+          <input id="search-input" type="text" placeholder="Rechercher…" oninput="renderList()">
+        </div>
+        <div id="tag-filters"></div>
+        <div class="list-meta">
+          <span id="list-count">0 restaurant</span>
+          <select id="sort-select" onchange="renderList()">
+            <option value="recent">Récents d'abord</option>
+            <option value="score_desc">Meilleure note</option>
+            <option value="score_asc">Note croissante</option>
+            <option value="name">A–Z</option>
+          </select>
+        </div>
+      </div>
+      <div id="resto-list"></div>
+      <button id="btn-add" onclick="openModal()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        Ajouter un restaurant
+      </button>
+    </div>
+
+    <!-- MAP -->
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="sync-badge">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Connexion…</span>
+      </div>
+    </div>
+
+    <!-- TABLE VIEW -->
+    <div id="table-view">
+      <div id="table-toolbar">
+        <input id="table-search" type="text" placeholder="🔍 Rechercher…" oninput="renderTable()">
+        <select id="table-sort" onchange="renderTable()">
+          <option value="score_desc">Meilleure note</option>
+          <option value="score_asc">Note croissante</option>
+          <option value="name">A–Z</option>
+          <option value="recent">Récents d'abord</option>
+          <option value="sale_desc">Salé ↓</option>
+          <option value="sucre_desc">Sucré ↓</option>
+          <option value="cadre_desc">Cadre ↓</option>
+          <option value="prix_desc">Prix ↓</option>
+        </select>
+      </div>
+      <div id="table-tag-filters"></div>
+      <div id="table-scroll">
+        <table id="resto-table">
+          <thead>
+            <tr>
+              <th onclick="setTableSort('name')">Nom <span class="sort-arrow">↕</span></th>
+              <th onclick="setTableSort('score_desc')">Total <span class="sort-arrow">↕</span></th>
+              <th onclick="setTableSort('sale_desc')">🥩 Salé <span class="sort-arrow">↕</span></th>
+              <th onclick="setTableSort('sucre_desc')">🍰 Sucré <span class="sort-arrow">↕</span></th>
+              <th onclick="setTableSort('cadre_desc')">✨ Cadre <span class="sort-arrow">↕</span></th>
+              <th onclick="setTableSort('prix_desc')">💶 Prix <span class="sort-arrow">↕</span></th>
+              <th>Catégories</th>
+              <th onclick="setTableSort('recent')">Date <span class="sort-arrow">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div id="table-count">0 restaurant</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" hidden>
+  <div class="modal">
+    <p class="modal-title" id="modal-title">Nouveau restaurant</p>
+    <div class="field">
+      <label>Nom du restaurant</label>
+      <input id="f-name" type="text" placeholder="Ex: Le Bon Coin">
+    </div>
+    <div class="field">
+      <label>Adresse</label>
+      <div class="addr-row">
+        <input id="f-addr" type="text" placeholder="Ex: 12 rue du Taur, Toulouse"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();doGeocode()}">
+        <button class="btn-search-addr" id="btn-geocode" onclick="doGeocode()">📍 Localiser</button>
+      </div>
+      <span class="addr-status" id="addr-status"></span>
+    </div>
+    <div class="field">
+      <label>Notes <span style="color:var(--fg2);font-weight:400;text-transform:none;letter-spacing:0">(sur 5 chacune)</span></label>
+      <div class="notes-grid">
+        <div class="note-field">
+          <label><span class="note-emoji">🥩</span> Salé</label>
+          <input id="f-sale" type="number" min="0" max="5" step="0.1" placeholder="–" oninput="updateTotal()">
+        </div>
+        <div class="note-field">
+          <label><span class="note-emoji">🍰</span> Sucré</label>
+          <input id="f-sucre" type="number" min="0" max="5" step="0.1" placeholder="–" oninput="updateTotal()">
+        </div>
+        <div class="note-field">
+          <label><span class="note-emoji">✨</span> Cadre</label>
+          <input id="f-cadre" type="number" min="0" max="5" step="0.1" placeholder="–" oninput="updateTotal()">
+        </div>
+        <div class="note-field">
+          <label><span class="note-emoji">💶</span> Prix</label>
+          <input id="f-prix" type="number" min="0" max="5" step="0.1" placeholder="–" oninput="updateTotal()">
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Total</label>
+      <div class="total-display">
+        <span class="total-label">Note globale</span>
+        <span class="total-value" id="total-display">–</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Catégories</label>
+      <div class="tag-input-row">
+        <input id="f-tag" type="text" placeholder="Ex: Brunch, Italien…"
+          onkeydown="if(event.key==='Enter'||event.key===','){event.preventDefault();addTag()}">
+        <button class="btn-add-tag" onclick="addTag()">+ Ajouter</button>
+      </div>
+      <div id="selected-tags"></div>
+    </div>
+    <div class="field">
+      <label>Remarques</label>
+      <textarea id="f-note" placeholder="Service, ambiance, plat recommandé…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn-danger" id="btn-delete" onclick="deleteResto()" style="display:none">Supprimer</button>
+      <button class="btn-primary" onclick="saveResto()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<!-- Firebase compat SDK (scripts classiques, pas de modules) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ── Firebase config ──────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDHZhn7A5AOYonnyQNgX_hmYczth2Pn084",
+  authDomain: "nos-restos-toulouse.firebaseapp.com",
+  projectId: "nos-restos-toulouse",
+  storageBucket: "nos-restos-toulouse.firebasestorage.app",
+  messagingSenderId: "524937241111",
+  appId: "1:524937241111:web:b0fb66dc3c9c376efb7252"
+};
+
+// ── État global ──────────────────────────────────────────────────────
+var restos = {};
+var currentEditId = null;
+var currentTags = [];
+var pendingLat = null, pendingLng = null;
+var activeTagFilter = null;
+var tableTagFilter = null;
+var currentTab = 'map';
+var tableSortKey = 'score_desc';
+var markers = {};
+var db = null;
+
+// ── Leaflet map ──────────────────────────────────────────────────────
+var map = L.map('map', { center: [43.6047, 1.4442], zoom: 12 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+function makeIcon(color) {
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="28" height="42">'
+    + '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24S24 21 24 12C24 5.4 18.6 0 12 0z"'
+    + ' fill="' + color + '" stroke="white" stroke-width="1.5"/>'
+    + '<circle cx="12" cy="12" r="5" fill="rgba(255,255,255,0.9)"/>'
+    + '</svg>';
+  return L.divIcon({ html: svg, iconSize: [28,42], iconAnchor: [14,42], popupAnchor: [0,-44], className: '' });
+}
+
+function pinColor(total) {
+  if (!total) return '#8B2635';
+  if (total >= 15) return '#2E7D4F';
+  if (total >= 10) return '#C4862A';
+  return '#8B2635';
+}
+
+function buildPopupHtml(id, r) {
+  var t = r.total || 0;
+  var scoreColor = t>=15?'var(--green)':t>=10?'var(--gold)':'var(--accent)';
+  var tags = (r.tags||[]).map(function(tg){ return '<span class="popup-tag">'+tg+'</span>'; }).join('');
+  return '<div class="popup-inner">'
+    + '<div class="popup-name">'+r.name+'</div>'
+    + (tags ? '<div class="popup-tags">'+tags+'</div>' : '')
+    + '<div class="popup-scores">'
+    + '<div class="popup-row"><span class="popup-lbl">🥩 Salé</span><span class="popup-val">'+(r.sale||0).toFixed(1)+'/5</span></div>'
+    + '<div class="popup-row"><span class="popup-lbl">🍰 Sucré</span><span class="popup-val">'+(r.sucre||0).toFixed(1)+'/5</span></div>'
+    + '<div class="popup-row"><span class="popup-lbl">✨ Cadre</span><span class="popup-val">'+(r.cadre||0).toFixed(1)+'/5</span></div>'
+    + '<div class="popup-row"><span class="popup-lbl">💶 Prix</span><span class="popup-val">'+(r.prix||0).toFixed(1)+'/5</span></div>'
+    + '</div>'
+    + '<div class="popup-total"><span class="popup-total-lbl">Total</span>'
+    + '<span class="popup-total-val" style="color:'+scoreColor+'">'+t.toFixed(1)+'/20</span></div>'
+    + (r.note ? '<div class="popup-note">'+r.note+'</div>' : '')
+    + '<button class="popup-edit" onclick="openModal(\''+id+'\')">✏️ Modifier</button>'
+    + '</div>';
+}
+
+function syncMarkers() {
+  Object.keys(markers).forEach(function(id) {
+    if (!restos[id]) { markers[id].remove(); delete markers[id]; }
+  });
+  Object.keys(restos).forEach(function(id) {
+    var r = restos[id];
+    if (!r.lat || !r.lng) return;
+    var icon = makeIcon(pinColor(r.total));
+    if (markers[id]) {
+      markers[id].setIcon(icon);
+      markers[id].setPopupContent(buildPopupHtml(id, r));
+    } else {
+      var m = L.marker([r.lat, r.lng], { icon: icon })
+        .addTo(map)
+        .bindPopup(buildPopupHtml(id, r), { maxWidth: 280 });
+      m.on('click', function(){ selectCard(id); });
+      markers[id] = m;
+    }
+  });
+}
+
+// ── Tab switching ────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  var sidebar = document.getElementById('sidebar');
+  var mapWrap = document.getElementById('map-wrap');
+  var tableView = document.getElementById('table-view');
+
+  if (tab === 'map') {
+    sidebar.style.display = '';
+    mapWrap.style.display = '';
+    tableView.classList.remove('active');
+    setTimeout(function(){ map.invalidateSize(); }, 50);
+  } else if (tab === 'list') {
+    sidebar.style.display = 'flex';
+    mapWrap.style.display = 'none';
+    tableView.classList.remove('active');
+    renderList();
+  } else if (tab === 'table') {
+    sidebar.style.display = 'none';
+    mapWrap.style.display = 'none';
+    tableView.classList.add('active');
+    renderTable();
+  }
+}
+
+// ── Sync status ──────────────────────────────────────────────────────
+function setSyncStatus(state, text) {
+  var dot = document.getElementById('sync-dot');
+  var lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot' + (state==='ok' ? ' ok' : state==='err' ? ' err' : '');
+  lbl.textContent = text;
+}
+
+// ── Firebase init ────────────────────────────────────────────────────
+function initFirebase() {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    db.collection('restaurants').onSnapshot(function(snap) {
+      restos = {};
+      snap.docs.forEach(function(d){ restos[d.id] = Object.assign({ id: d.id }, d.data()); });
+      renderList();
+      syncMarkers();
+      if (currentTab === 'table') renderTable();
+      setSyncStatus('ok', 'Synchronisé');
+    }, function(err) {
+      setSyncStatus('err', 'Erreur sync');
+    });
+  } catch(e) {
+    setSyncStatus('err', 'Hors ligne');
+    try {
+      var raw = localStorage.getItem('restos_tlse');
+      if (raw) restos = JSON.parse(raw);
+    } catch(_) {}
+    renderList();
+    syncMarkers();
+  }
+}
+
+function saveLocal() {
+  try { localStorage.setItem('restos_tlse', JSON.stringify(restos)); } catch(_) {}
+}
+
+// ── Geocoding ────────────────────────────────────────────────────────
+function doGeocode() {
+  var addr = document.getElementById('f-addr').value.trim();
+  if (!addr) return;
+  var btn = document.getElementById('btn-geocode');
+  var status = document.getElementById('addr-status');
+  btn.disabled = true;
+  status.textContent = '📍 Localisation en cours…';
+  status.className = 'addr-status';
+  var fullAddr = addr.toLowerCase().includes('toulouse') ? addr : addr + ', Toulouse, France';
+  var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(fullAddr) + '&format=json&limit=1&countrycodes=fr';
+  fetch(url, { headers: { 'Accept-Language': 'fr' } })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (!data.length) {
+        status.textContent = 'Adresse introuvable.';
+        status.className = 'addr-status err';
+        btn.disabled = false;
+        return;
+      }
+      pendingLat = parseFloat(data[0].lat);
+      pendingLng = parseFloat(data[0].lon);
+      status.textContent = '✓ ' + data[0].display_name.split(',').slice(0,3).join(', ');
+      status.className = 'addr-status ok';
+      map.flyTo([pendingLat, pendingLng], 16, { duration: 1.2 });
+      btn.disabled = false;
+    })
+    .catch(function() {
+      status.textContent = 'Erreur réseau.';
+      status.className = 'addr-status err';
+      btn.disabled = false;
+    });
+}
+
+// ── Modal ────────────────────────────────────────────────────────────
+function openModal(id) {
+  id = id || null;
+  currentEditId = id; currentTags = []; pendingLat = null; pendingLng = null;
+  var r = id ? restos[id] : null;
+  document.getElementById('modal-title').textContent = id ? 'Modifier le restaurant' : 'Nouveau restaurant';
+  document.getElementById('f-name').value = r ? r.name : '';
+  document.getElementById('f-addr').value = r ? (r.address||'') : '';
+  document.getElementById('f-sale').value = r ? (r.sale||'') : '';
+  document.getElementById('f-sucre').value = r ? (r.sucre||'') : '';
+  document.getElementById('f-cadre').value = r ? (r.cadre||'') : '';
+  document.getElementById('f-prix').value = r ? (r.prix||'') : '';
+  document.getElementById('f-note').value = r ? (r.note||'') : '';
+  document.getElementById('f-tag').value = '';
+  document.getElementById('addr-status').textContent = r ? '✓ '+(r.address||'') : '';
+  document.getElementById('addr-status').className = r ? 'addr-status ok' : 'addr-status';
+  document.getElementById('btn-delete').style.display = id ? '' : 'none';
+  if (r) { pendingLat = r.lat; pendingLng = r.lng; currentTags = (r.tags||[]).slice(); }
+  updateTotal();
+  renderSelectedTags();
+  document.getElementById('modal-overlay').removeAttribute('hidden');
+  setTimeout(function(){ document.getElementById('f-name').focus(); }, 50);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').setAttribute('hidden', '');
+}
+
+function updateTotal() {
+  var ids = ['f-sale','f-sucre','f-cadre','f-prix'];
+  var vals = ids.map(function(id){ return parseFloat(document.getElementById(id).value)||0; });
+  var total = vals.reduce(function(a,b){ return a+b; }, 0);
+  document.getElementById('total-display').textContent = vals.some(function(v){ return v>0; }) ? total.toFixed(1)+' / 20' : '–';
+}
+
+function addTag() {
+  var inp = document.getElementById('f-tag');
+  var raw = inp.value.replace(/,/g,'').trim();
+  if (!raw) return;
+  raw.split(/[,;]+/).map(function(t){ return t.trim(); }).filter(Boolean).forEach(function(t) {
+    if (!currentTags.includes(t)) currentTags.push(t);
+  });
+  inp.value = '';
+  renderSelectedTags();
+}
+
+function removeTag(t) {
+  currentTags = currentTags.filter(function(x){ return x !== t; });
+  renderSelectedTags();
+}
+
+function renderSelectedTags() {
+  document.getElementById('selected-tags').innerHTML = currentTags.map(function(t) {
+    return '<span class="stag">'+t+'<button onclick="removeTag(\''+t.replace(/'/g,"\\'")+'\')">\xd7</button></span>';
+  }).join('');
+}
+
+function saveResto() {
+  var name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); return; }
+  var sale = parseFloat(document.getElementById('f-sale').value)||0;
+  var sucre = parseFloat(document.getElementById('f-sucre').value)||0;
+  var cadre = parseFloat(document.getElementById('f-cadre').value)||0;
+  var prix = parseFloat(document.getElementById('f-prix').value)||0;
+  var data = {
+    name: name,
+    address: document.getElementById('f-addr').value.trim(),
+    lat: pendingLat,
+    lng: pendingLng,
+    sale: sale, sucre: sucre, cadre: cadre, prix: prix,
+    total: sale+sucre+cadre+prix,
+    tags: currentTags.slice(),
+    note: document.getElementById('f-note').value.trim(),
+    updatedAt: Date.now()
+  };
+  if (db) {
+    if (currentEditId) {
+      db.collection('restaurants').doc(currentEditId).set(data);
+    } else {
+      data.createdAt = Date.now();
+      db.collection('restaurants').add(data);
+    }
+  } else {
+    var id = currentEditId || ('r'+Date.now());
+    if (!currentEditId) data.createdAt = Date.now();
+    restos[id] = data;
+    saveLocal();
+    renderList();
+    syncMarkers();
+  }
+  closeModal();
+}
+
+function deleteResto() {
+  if (!currentEditId || !confirm('Supprimer ce restaurant ?')) return;
+  if (db) {
+    db.collection('restaurants').doc(currentEditId).delete();
+  } else {
+    delete restos[currentEditId];
+    saveLocal();
+    renderList();
+    syncMarkers();
+  }
+  closeModal();
+}
+
+// ── Sort helper ──────────────────────────────────────────────────────
+function sortedList(sortKey, filterTag, searchQ) {
+  return Object.entries(restos).filter(function(entry) {
+    var r = entry[1];
+    if (filterTag && !(r.tags||[]).includes(filterTag)) return false;
+    if (searchQ && !r.name.toLowerCase().includes(searchQ) && !(r.address||'').toLowerCase().includes(searchQ)) return false;
+    return true;
+  }).sort(function(ea, eb) {
+    var a = ea[1], b = eb[1];
+    if (sortKey==='score_desc') return (b.total||0)-(a.total||0);
+    if (sortKey==='score_asc')  return (a.total||0)-(b.total||0);
+    if (sortKey==='name')       return a.name.localeCompare(b.name);
+    if (sortKey==='sale_desc')  return (b.sale||0)-(a.sale||0);
+    if (sortKey==='sucre_desc') return (b.sucre||0)-(a.sucre||0);
+    if (sortKey==='cadre_desc') return (b.cadre||0)-(a.cadre||0);
+    if (sortKey==='prix_desc')  return (b.prix||0)-(a.prix||0);
+    return (b.createdAt||0)-(a.createdAt||0);
+  });
+}
+
+// ── Tags helper ──────────────────────────────────────────────────────
+function allTags() {
+  var s = new Set();
+  Object.values(restos).forEach(function(r){ (r.tags||[]).forEach(function(t){ s.add(t); }); });
+  return Array.from(s).sort();
+}
+
+// ── Sidebar list ─────────────────────────────────────────────────────
+function renderList() {
+  var tags = allTags();
+  document.getElementById('tag-filters').innerHTML = tags.map(function(t) {
+    return '<span class="tag-chip'+(activeTagFilter===t?' active':'')+'" onclick="toggleTagFilter(\''+t.replace(/'/g,"\\'")+'\')"> '+t+'</span>';
+  }).join('');
+  var q = document.getElementById('search-input').value.toLowerCase();
+  var sort = document.getElementById('sort-select').value;
+  var list = sortedList(sort, activeTagFilter, q);
+  document.getElementById('list-count').textContent = list.length+' restaurant'+(list.length!==1?'s':'');
+  var el = document.getElementById('resto-list');
+  if (!list.length) {
+    el.innerHTML = '<div id="empty-state">'
+      + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>'
+      + '<p>Aucun restaurant.<br>Ajoutez votre premier !</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(function(entry) {
+    var id = entry[0], r = entry[1];
+    var t = r.total||0;
+    var cls = t>=15?'high':t>=10?'mid':'';
+    return '<div class="resto-card" id="card-'+id+'" onclick="selectResto(\''+id+'\')">'
+      + '<div class="rc-top"><span class="rc-name">'+r.name+'</span><span class="rc-score '+cls+'">'+t.toFixed(1)+'/20</span></div>'
+      + '<div class="rc-address">'+(r.address||'Adresse non renseignée')+'</div>'
+      + '<div class="rc-tags">'+(r.tags||[]).map(function(tg){ return '<span class="rc-tag">'+tg+'</span>'; }).join('')+'</div>'
+      + '</div>';
+  }).join('');
+}
+
+function toggleTagFilter(t) {
+  activeTagFilter = activeTagFilter===t ? null : t;
+  renderList();
+}
+
+function selectCard(id) {
+  document.querySelectorAll('.resto-card').forEach(function(c){ c.classList.remove('selected'); });
+  var card = document.getElementById('card-'+id);
+  if (card) { card.classList.add('selected'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+function selectResto(id) {
+  selectCard(id);
+  var r = restos[id];
+  if (r && r.lat && r.lng) {
+    switchTab('map');
+    setTimeout(function() {
+      map.flyTo([r.lat, r.lng], 16, { duration: 1 });
+      setTimeout(function(){ if(markers[id]) markers[id].openPopup(); }, 1100);
+    }, 100);
+  }
+}
+
+// ── Table view ───────────────────────────────────────────────────────
+function setTableSort(key) {
+  tableSortKey = key;
+  document.getElementById('table-sort').value = key;
+  renderTable();
+}
+
+function toggleTableTag(t) {
+  tableTagFilter = tableTagFilter===t ? null : t;
+  renderTable();
+}
+
+function renderTable() {
+  var tags = allTags();
+  document.getElementById('table-tag-filters').innerHTML = tags.map(function(t) {
+    return '<span class="tag-chip'+(tableTagFilter===t?' active':'')+'" onclick="toggleTableTag(\''+t.replace(/'/g,"\\'")+'\')"> '+t+'</span>';
+  }).join('');
+  var q = document.getElementById('table-search').value.toLowerCase();
+  var list = sortedList(tableSortKey, tableTagFilter, q);
+  document.getElementById('table-count').textContent = list.length+' restaurant'+(list.length!==1?'s':'');
+  document.getElementById('table-body').innerHTML = list.map(function(entry) {
+    var id = entry[0], r = entry[1];
+    var t = r.total||0;
+    var cls = t>=15?'high':t>=10?'mid':'low';
+    var date = r.createdAt ? new Date(r.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '–';
+    var tags = (r.tags||[]).map(function(tg){ return '<span class="td-tag">'+tg+'</span>'; }).join('');
+    return '<tr onclick="goToRestoFromTable(\''+id+'\')">'
+      + '<td><div class="td-name">'+r.name+'</div><div class="td-sub">'+(r.address||'')+'</div></td>'
+      + '<td><span class="td-score '+cls+'">'+t.toFixed(1)+'/20</span></td>'
+      + '<td class="td-sub">'+(r.sale||0).toFixed(1)+'</td>'
+      + '<td class="td-sub">'+(r.sucre||0).toFixed(1)+'</td>'
+      + '<td class="td-sub">'+(r.cadre||0).toFixed(1)+'</td>'
+      + '<td class="td-sub">'+(r.prix||0).toFixed(1)+'</td>'
+      + '<td><div class="td-tags">'+tags+'</div></td>'
+      + '<td class="td-sub">'+date+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function goToRestoFromTable(id) {
+  switchTab('map');
+  var r = restos[id];
+  if (r && r.lat && r.lng) {
+    setTimeout(function() {
+      map.flyTo([r.lat, r.lng], 16, { duration: 1 });
+      setTimeout(function(){ if(markers[id]) markers[id].openPopup(); }, 1100);
+    }, 100);
+  }
+}
+
+// ── Modal close ──────────────────────────────────────────────────────
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── Démarrage ────────────────────────────────────────────────────────
+initFirebase();
+</script>
+</body>
+</html>
